@@ -3,7 +3,7 @@
 ## RUN NOW (One command line)
 
 ```bash
-chmod +x s1ngularity_security_check_en.sh && ./s1ngularity_security_check_en.sh
+chmod +x s1ngularityCheck.sh && ./s1ngularityCheck.sh
 ```
 
 ## EXPECTED RESULTS
@@ -28,11 +28,32 @@ Your machine remains vulnerable to future attacks
 ACTION REQUIRED: Contact security team immediately
 ```
 
-## What does the script do?
+## 🎯 What does the script do?
 
-- ✅ Searches for malicious files (`/tmp/inventory.txt`)
-- ✅ Verifies shell profiles (`.zshrc`, `.bashrc`)
-- ✅ Detects compromised repositories
-- ✅ Identifies vulnerable NX dependencies
-- ✅ Cleans caches (npm, yarn, pnpm)
-- ✅ **Does NOT modify source code**
+- ✅ **Scans ALL Git repositories** 
+- ✅ **Searches for malicious files** (`/tmp/inventory.txt`)
+- ✅ **Verifies shell profiles** (`.zshrc`, `.bashrc`)
+- ✅ **Detects compromised repositories**
+- ✅ **Identifies vulnerable NX/Lerna dependencies**
+- ✅ **Cleans caches** (npm, yarn, pnpm)
+- ✅ **Safe execution** - Does NOT modify source code
+
+## Customizing Search Directories
+
+**For performance reasons**, the script searches for `package.json` files only in common development directories:
+
+- `~/Documents`
+- `~/Desktop`
+- `~/Projects`
+- `~/src`
+- `~/dev`
+- `~/workspace`
+- `~/code`
+
+### 🔧 To add more directories:
+
+If your projects are in different locations, edit line ~192 in `s1ngularityCheck.sh`:
+
+```bash
+PACKAGE_FILES=$(find ~/Documents ~/Desktop ~/Projects ~/src ~/dev ~/workspace ~/code ~/YOUR_DIRECTORY -name "node_modules" -prune -o -name "package.json" -type f -print 2>/dev/null | head -100)
+```
