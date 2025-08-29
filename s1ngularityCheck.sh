@@ -143,18 +143,19 @@ check_wave2() {
     log_info "Checking local repositories..."
     
 
-    GIT_REPOS=$(find ~ -name ".git" -type d 2>/dev/null | head -20 | sed 's/\/.git$//')
+    GIT_REPOS=$(find ~ -name ".git" -type d 2>/dev/null | sed 's/\/.git$//')
     
     if [[ -n "$GIT_REPOS" ]]; then
-        log_info "Repositories found to verify:"
-        REPO_ISSUES=0
+        # Count total repos found first
+        TOTAL_REPOS=$(echo "$GIT_REPOS" | wc -l)
+        log_info "Scanning $TOTAL_REPOS Git repositories..."
         
-        echo "$GIT_REPOS" | while IFS= read -r repo; do
+        while IFS= read -r repo; do
             if [[ -d "$repo" ]]; then
                 echo "  📁 $repo"
                 cd "$repo" 2>/dev/null || continue
                 
-              
+            
                 REMOTES=$(git remote -v 2>/dev/null | head -5)
                 if echo "$REMOTES" | grep -i "s1ngularity" >/dev/null; then
                     log_error "Suspicious remote found in $repo"
@@ -162,10 +163,12 @@ check_wave2() {
                     WAVE2_ISSUES=$((WAVE2_ISSUES + 1))
                 fi
             fi
-        done
+        done <<< "$GIT_REPOS"
         
         if [[ $WAVE2_ISSUES -eq 0 ]]; then
-            log_success "No suspicious remotes found in local repositories"
+            log_success "No suspicious remotes found in $TOTAL_REPOS repositories"
+        else
+            log_error "Found suspicious remotes in $WAVE2_ISSUES repositories"
         fi
     else
         log_info "No local Git repositories found"
@@ -180,16 +183,27 @@ check_nx_vulnerability() {
     
 
     NX_FOUND=0
-    PACKAGE_FILES=$(find ~ -name "package.json" -path "*/node_modules" -prune -o -name "package.json" -print 2>/dev/null | head -20)
+    # Search in common development directories, avoiding node_modules and limiting results
+    PACKAGE_FILES=$(find ~/Documents ~/Desktop ~/Projects ~/src ~/dev ~/workspace ~/code -name "node_modules" -prune -o -name "package.json" -type f -print 2>/dev/null | head -100)
+    
+    # Also check home directory root (non-recursive for common files)
+    HOME_PACKAGES=$(find ~ -maxdepth 2 -name "package.json" -type f 2>/dev/null | head -20)
+    if [[ -n "$HOME_PACKAGES" ]]; then
+        PACKAGE_FILES="$PACKAGE_FILES$'\n'$HOME_PACKAGES"
+    fi
     
     if [[ -n "$PACKAGE_FILES" ]]; then
-        echo "$PACKAGE_FILES" | while IFS= read -r package_file; do
-            if [[ -f "$package_file" ]]; then
+      
+        TOTAL_PACKAGES=$(echo "$PACKAGE_FILES" | wc -l)
+        log_info "Scanning $TOTAL_PACKAGES package.json files..."
+        
+        while IFS= read -r package_file; do
+            if [[ -f "$package_file" && -s "$package_file" ]]; then
                 if grep -q '"@nx\|"nx\|"@nrwl\|"lerna"' "$package_file" 2>/dev/null; then
                     DIR=$(dirname "$package_file")
                     log_warning "NX/Lerna dependencies found in: $DIR"
                     
-              
+                
                     DEPS=$(grep -o '"@nx[^"]*"\|"nx[^"]*"\|"@nrwl[^"]*"\|"lerna[^"]*"' "$package_file" 2>/dev/null | tr '\n' ' ')
                     if [[ -n "$DEPS" ]]; then
                         echo "  📦 Dependencies: $DEPS"
@@ -197,10 +211,12 @@ check_nx_vulnerability() {
                     NX_FOUND=$((NX_FOUND + 1))
                 fi
             fi
-        done
+        done <<< "$PACKAGE_FILES"
         
         if [[ $NX_FOUND -eq 0 ]]; then
-            log_success "No problematic NX dependencies found"
+            log_success "No problematic NX dependencies found in $TOTAL_PACKAGES files"
+        else
+            log_warning "Found NX/Lerna in $NX_FOUND out of $TOTAL_PACKAGES projects"
         fi
     fi
     
